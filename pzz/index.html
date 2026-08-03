@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PZZ</title>
+<link rel="icon" id="fav" href="data:,">
+<style>
+  /* Two colours, one variable pair, and the whole game inverts.
+     Deliberately NOT wired to prefers-color-scheme: door 04 is about the
+     operating system's own light/dark setting, and a page that flipped by
+     itself would hand that puzzle over. The toggle is manual only. */
+  :root{--fg:#000;--bg:#fff;color-scheme:light}
+  :root[data-theme="dark"]{--fg:#fff;--bg:#000;color-scheme:dark}
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:var(--bg);color:var(--fg);
+    font:14px/1.7 ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;
+    -webkit-font-smoothing:antialiased;
+    text-size-adjust:none;-webkit-text-size-adjust:none;
+    overflow:hidden;
+  }
+  ::selection{background:var(--fg);color:var(--bg)}
+  ::-moz-selection{background:var(--fg);color:var(--bg)}
+
+  #app{display:flex;flex-direction:column;height:100%}
+
+  #bar{
+    display:flex;align-items:center;gap:1.2rem;
+    padding:.7rem 1.1rem;border-bottom:1px solid var(--fg);
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    flex:0 0 auto;user-select:none
+  }
+  #bar .sp{flex:1}
+  #bar b{font-weight:400}
+  .btn{
+    background:transparent;color:var(--fg);border:1px solid var(--fg);
+    font:inherit;font-size:11px;letter-spacing:.22em;text-transform:uppercase;
+    padding:.28rem .7rem;cursor:pointer
+  }
+  .btn:hover{background:var(--fg);color:var(--bg)}
+  .btn[disabled]{opacity:.28;cursor:default}
+  .btn[disabled]:hover{background:transparent;color:var(--fg)}
+  .btn.on{background:var(--fg);color:var(--bg)}
+
+  #stage{
+    flex:1 1 auto;overflow:auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:2.2rem 1.2rem;text-align:center
+  }
+  #stage>*{max-width:44rem;width:100%}
+  #stage>.btn{width:auto}
+
+  #foot{
+    flex:0 0 auto;border-top:1px solid var(--fg);padding:.55rem 1.1rem;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;min-height:2.1rem;
+    display:flex;gap:1rem;align-items:center;user-select:none
+  }
+  #foot .sp{flex:1}
+
+  .eyebrow{font-size:11px;letter-spacing:.42em;text-transform:uppercase;margin:0 0 1.6rem}
+  .ln{margin:.15rem 0;font-size:15px}
+  .ln.dim{opacity:.45}
+  .ln.big{font-size:clamp(20px,4.5vw,34px);letter-spacing:.16em;margin:.4rem 0}
+  .gap{height:1.6rem}
+
+  .rule{border:0;border-top:1px solid var(--fg);width:2.4rem;margin:1.6rem auto;opacity:.3}
+
+  .readout{
+    font-size:clamp(18px,4vw,30px);letter-spacing:.14em;margin:1.2rem 0;
+    font-variant-numeric:tabular-nums
+  }
+
+  form.fld{display:flex;gap:.6rem;justify-content:center;margin:1.8rem 0 .4rem;flex-wrap:wrap}
+  form.fld input{
+    background:transparent;border:0;border-bottom:1px solid var(--fg);color:var(--fg);
+    font:inherit;font-size:17px;letter-spacing:.34em;text-transform:uppercase;
+    text-align:center;padding:.35rem .2rem;width:min(22rem,72vw);outline:0
+  }
+  form.fld input::placeholder{color:var(--fg);opacity:.2;letter-spacing:.34em}
+  form.fld input:focus{border-bottom-width:2px}
+  .qrow{display:flex;align-items:center;gap:.9rem;justify-content:space-between;margin:.9rem 0;text-align:left}
+  .qrow span{flex:1;font-size:14px}
+  .qrow input{
+    background:transparent;border:0;border-bottom:1px solid var(--fg);color:var(--fg);font:inherit;
+    font-size:16px;text-align:center;width:7rem;padding:.2rem;outline:0
+  }
+  .qrow::after{content:"--";font-size:11px;letter-spacing:.2em;opacity:.3;width:2rem;text-align:right}
+  .qrow.ok::after{content:"OK";opacity:1}
+
+  .bad{animation:sh .28s}
+  @keyframes sh{0%,100%{transform:translateX(0)}22%{transform:translateX(-9px)}66%{transform:translateX(9px)}}
+
+  .meter{width:min(26rem,80vw);height:9px;border:1px solid var(--fg);margin:1.4rem auto;padding:2px}
+  .meter i{display:block;height:100%;background:var(--fg);width:0}
+
+  .tiny{font-size:2.5px;letter-spacing:0;line-height:1.2;margin:2.6rem 0}
+
+  #grain{width:min(512px,84vw);height:min(512px,84vw);border:1px solid var(--fg);image-rendering:pixelated;display:block;margin:1.2rem auto}
+
+  .glyphs{display:flex;gap:.6rem;justify-content:center;margin:2rem 0;flex-wrap:wrap}
+  .glyphs i{
+    font-style:normal;width:3rem;height:3.6rem;border:1px solid var(--fg);
+    display:flex;align-items:center;justify-content:center;font-size:20px;letter-spacing:0
+  }
+  .glyphs i.gone{visibility:hidden}
+
+  .face{border:1px solid var(--fg);padding:2.4rem 1rem;margin:1.6rem 0}
+  .face.rev{background:var(--fg);color:var(--bg)}
+  /* the word lives in a pseudo-element so ctrl+F and select-all cannot lift it */
+  .face .w{font-size:clamp(20px,5vw,34px);letter-spacing:.3em;color:transparent}
+  .face .w::after{content:var(--w)}
+  .face.rev .w{color:var(--bg)}
+
+  .invisible{color:transparent}
+
+  /* overlays */
+  .ov{
+    position:fixed;inset:0;background:var(--bg);z-index:50;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:2rem;text-align:center;overflow:auto
+  }
+  .ov.hid{display:none}
+  .ov.inv{background:var(--fg);color:var(--bg)}
+  .ov.inv .btn{color:var(--bg);border-color:var(--bg)}
+  .ov.inv .btn:hover{background:var(--bg);color:var(--fg)}
+  .shard{font-size:clamp(64px,22vw,180px);line-height:1;letter-spacing:.1em;margin:1rem 0}
+
+  #arch{width:min(52rem,100%);text-align:left}
+  #arch .row{display:flex;gap:1rem;align-items:baseline;border-bottom:1px solid var(--fg);padding:.45rem .2rem;opacity:.28}
+  #arch .row.got{opacity:1;cursor:pointer}
+  #arch .row.got:hover{background:var(--fg);color:var(--bg)}
+  #arch .row .no{width:2.4rem;font-size:11px;letter-spacing:.2em}
+  #arch .row .nm{flex:1;font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+  #arch .row .lt{width:2rem;text-align:right;font-size:18px}
+
+  #printroom{display:none}
+  @media print{
+    body>*{display:none!important}
+    /* paper is always paper, whatever the screen is doing */
+    html,body{background:#fff!important;color:#000!important}
+    #printroom{display:block!important;padding:3rem;font-family:monospace;color:#000;background:#fff}
+    #printroom .p1{font-size:12px;letter-spacing:.3em;margin-bottom:2rem}
+    #printroom .p2{font-size:40px;letter-spacing:.4em}
+  }
+
+  @media (max-width:560px){
+    #bar{gap:.7rem;font-size:10px;padding:.6rem}
+    .btn{padding:.25rem .45rem;font-size:10px;letter-spacing:.12em}
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="bar">
+    <b id="brand">PZZ</b>
+    <b id="pos"></b>
+    <b id="name"></b>
+    <span class="sp"></span>
+    <b id="clk">00:00</b>
+    <button class="btn" id="bhint">hint</button>
+    <button class="btn" id="barch">archive</button>
+    <button class="btn" id="btheme" title="invert the game (d). this is not door 04.">dark</button>
+  </header>
+  <main id="stage"></main>
+  <footer id="foot">
+    <b id="msg"></b>
+    <span class="sp"></span>
+    <b id="tot"></b>
+  </footer>
+</div>
+
+<div class="ov hid" id="ovSolve">
+  <div class="eyebrow" id="ovLead">door open</div>
+  <div class="shard" id="ovLetter">A</div>
+  <div class="ln dim" id="ovNote">a letter. keep it.</div>
+  <div class="gap"></div>
+  <button class="btn" id="ovNext">continue</button>
+</div>
+
+<div class="ov hid" id="ovArch">
+  <div class="eyebrow">archive</div>
+  <div id="arch"></div>
+  <div class="gap"></div>
+  <button class="btn" id="ovClose">close</button>
+</div>
+
+<div class="ov hid" id="ovEnd">
+  <div id="endA">
+    <div class="eyebrow">twenty of twenty</div>
+    <div class="ln big" id="endPhrase"></div>
+    <div class="gap"></div>
+    <button class="btn" id="endTurn">turn around</button>
+  </div>
+  <div id="endB" style="display:none">
+    <div class="eyebrow">backstage</div>
+    <div class="ln dim">every door was a piece of your machine.</div>
+    <div class="gap"></div>
+    <div id="endList" style="text-align:left;font-size:12px;line-height:2"></div>
+    <div class="gap"></div>
+    <div class="ln" id="endTime"></div>
+    <div class="gap"></div>
+    <button class="btn" id="endReset">wipe and start over</button>
+  </div>
+</div>
+
+<div id="printroom"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- the vault ---------- */
+var RAW="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";
+function dec(b64){
+  var k="pzz", s=atob(b64), o="";
+  for(var i=0;i<s.length;i++) o+=String.fromCharCode(s.charCodeAt(i)^k.charCodeAt(i%3));
+  return o;
+}
+var S=JSON.parse(dec(RAW));
+var N=20;
+var HINT_AT=[45,150,360,600];
+
+var MECH=["document.title","the console","comment nodes in the dom","prefers-color-scheme",
+"browser zoom","window geometry","the page visibility api","navigator.onLine","@media print",
+"the selection + paste events","the web audio api","speech synthesis","the fullscreen api",
+"a key sequence from 1986","the history api","canvas getImageData","broadcastchannel",
+"the absence of input","navigator + screen","your system clock"];
+
+/* ---------- state ---------- */
+var KEY="pzz.v1";
+function fresh(){return{cur:0,max:1,solved:{},times:{},hints:{},wrongs:{},saw20:false,total:0,done:false,theme:"light"};}
+var st;
+try{ st=JSON.parse(localStorage.getItem(KEY))||fresh(); }catch(e){ st=fresh(); }
+if(!st||typeof st!=="object"||!st.solved) st=fresh();
+if(!st.wrongs) st.wrongs={};
+if(!st.hints) st.hints={};
+if(st.theme!=="dark") st.theme="light";
+function save(){ try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){} }
+
+/* ---------- dom ---------- */
+function $(id){return document.getElementById(id);}
+var stage=$("stage"), bar=$("bar"), foot=$("msg"), tot=$("tot"),
+    pos=$("pos"), nameEl=$("name"), clk=$("clk"),
+    bhint=$("bhint"), barch=$("barch");
+
+function mk(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+
+/* ---------- theme ----------
+   Manual only. Door 04 reads prefers-color-scheme, which this never touches,
+   so inverting the game cannot solve or spoil it. */
+var lastFav="?";
+function applyTheme(){
+  var dark=st.theme==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"dark":"light");
+  var b=$("btheme");
+  if(b) b.textContent=dark?"light":"dark";
+  favicon(lastFav);
+}
+function toggleTheme(){
+  st.theme=(st.theme==="dark")?"light":"dark";
+  save(); applyTheme();
+}
+
+/* ---------- favicon ---------- */
+function favicon(label){
+  lastFav=label;
+  try{
+    var dark=st.theme==="dark";
+    var ink=dark?"#000":"#fff", card=dark?"#fff":"#000";
+    var c=document.createElement("canvas");c.width=c.height=64;
+    var g=c.getContext("2d");
+    g.fillStyle=card;g.fillRect(0,0,64,64);
+    g.fillStyle=ink;g.textAlign="center";g.textBaseline="middle";
+    g.font="bold "+(label.length>2?26:40)+"px monospace";
+    g.fillText(label,32,35);
+    $("fav").href=c.toDataURL();
+  }catch(e){}
+}
+
+/* ---------- misc ---------- */
+function norm(v){return String(v||"").toUpperCase().replace(/[^A-Z0-9]/g,"");}
+function pad(n){return(n<10?"0":"")+n;}
+function mmss(s){s=Math.max(0,Math.floor(s));return pad(Math.floor(s/60))+":"+pad(s%60);}
+function hms(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600);return (h?h+"h ":"")+pad(Math.floor(s%3600/60))+"m "+pad(s%60)+"s";}
+function say(t,ms){foot.textContent=t||"";if(ms)setTimeout(function(){if(foot.textContent===t)foot.textContent="";},ms);}
+
+/* cross-tab channel. BroadcastChannel is the real mechanism, but it does not
+   cross opaque file:// origins in every browser, so storage events ride along. */
+function chan(name,onmsg){
+  var bc=null;
+  try{ bc=new BroadcastChannel(name); }catch(e){ bc=null; }
+  if(bc) bc.onmessage=function(e){ onmsg(e.data); };
+  var k="bcfb."+name;
+  var h=function(e){ if(e.key===k&&e.newValue){ try{onmsg(JSON.parse(e.newValue));}catch(_){} } };
+  addEventListener("storage",h);
+  return {
+    post:function(d){
+      if(bc){ try{bc.postMessage(d);}catch(e){} }
+      try{ localStorage.setItem(k,JSON.stringify(d)); }catch(e){}
+    },
+    close:function(){
+      removeEventListener("storage",h);
+      if(bc){ try{bc.close();}catch(e){} }
+    }
+  };
+}
+
+/* ---------- level context ---------- */
+var live=null;
+function makeCtx(n){
+  var cl=[];
+  var c={
+    n:n,
+    d:S[String(n)],
+    x:S[String(n)].x||{},
+    on:function(t,e,f,o){t.addEventListener(e,f,o);cl.push(function(){t.removeEventListener(e,f,o);});},
+    every:function(ms,f){var i=setInterval(f,ms);cl.push(function(){clearInterval(i);});return i;},
+    after:function(ms,f){var i=setTimeout(f,ms);cl.push(function(){clearTimeout(i);});return i;},
+    free:function(f){cl.push(f);},
+    kill:function(){for(var i=0;i<cl.length;i++){try{cl[i]();}catch(e){}}cl=[];},
+    add:function(node){stage.appendChild(node);return node;},
+    line:function(t,cls){var p=mk("p","ln "+(cls||""),t);stage.appendChild(p);return p;},
+    gap:function(){stage.appendChild(mk("div","gap"));},
+    solve:function(){ if(live&&live.n===n) markSolved(n); }
+  };
+
+  c.readout=function(t){var d=mk("div","readout",t);stage.appendChild(d);return d;};
+
+  c.meter=function(){
+    var m=mk("div","meter"); var i=mk("i"); m.appendChild(i); stage.appendChild(m);
+    return {set:function(f){i.style.width=Math.max(0,Math.min(1,f))*100+"%";}};
+  };
+
+  c.field=function(o){
+    o=o||{};
+    var f=mk("form","fld");
+    var inp=mk("input");
+    inp.type="text";
+    inp.autocomplete="off"; inp.autocapitalize="characters"; inp.spellcheck=false;
+    inp.placeholder=o.placeholder||"the word";
+    var b=mk("button","btn","enter"); b.type="submit";
+    f.appendChild(inp); f.appendChild(b);
+    stage.appendChild(f);
+    /* check() returns true to open the door, false for the stock refusal,
+       or a string to refuse with something more specific. */
+    f.addEventListener("submit",function(e){
+      e.preventDefault();
+      var res=false;
+      try{ res=o.check?o.check(inp.value,inp):(norm(inp.value)===norm(c.d.a)); }catch(err){ res=false; }
+      if(res===true){ c.solve(); return; }
+      f.classList.remove("bad"); void f.offsetWidth; f.classList.add("bad");
+      say(typeof res==="string"?res:(o.wrong||"no."),4000);
+      inp.select();
+      /* a string refusal means the guess was not simply wrong (right word,
+         wrong moment; right word, never pasted) - it does not cost a hint */
+      if(res===false) noteWrong(n,inp.value);
+    });
+    setTimeout(function(){try{inp.focus();}catch(e){}},60);
+    return inp;
+  };
+
+  return c;
+}
+
+/* ---------- levels ---------- */
+var L={};
+
+/* 1 - document.title */
+L[1]=function(c){
+  c.line(c.d.p[0],"dim"); c.line(c.d.p[1]); c.gap();
+  var on=true;
+  var t=c.every(900,function(){ document.title=on?c.x.title:"·"; on=!on; });
+  c.free(function(){ setTitle(); });
+  c.field({});
+};
+
+/* 2 - console */
+L[2]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim"); c.gap();
+  var shout=function(){
+    try{
+      console.log("%c"+c.x.msg,"background:#000;color:#fff;font:16px monospace;padding:10px 6px");
+    }catch(e){}
+  };
+  shout(); c.every(3500,shout);
+  c.field({});
+};
+
+/* 3 - comment node in the dom */
+L[3]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim"); c.gap();
+  var wall=mk("div","wall"); wall.setAttribute("data-mortar",c.x.decoy1);
+  var inner=mk("div"); inner.setAttribute("aria-label",c.x.decoy2);
+  var deep=mk("div"); deep.setAttribute("title",c.x.decoy3);
+  deep.appendChild(document.createComment(c.x.real));
+  var fake=mk("span"); fake.hidden=true; fake.textContent="PORTCULLIS";
+  inner.appendChild(deep); inner.appendChild(fake); wall.appendChild(inner);
+  c.add(wall);
+  var brick=c.line("[][][][][][][][][][][][][][][][]","dim");
+  brick.style.letterSpacing=".1em";
+  c.field({});
+};
+
+/* 4 - prefers-color-scheme */
+L[4]=function(c){
+  var mq=matchMedia("(prefers-color-scheme: dark)");
+  var start=mq.matches;
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var box=mk("div","face"); var w=mk("div","w");
+  w.style.setProperty("--w",JSON.stringify(c.x.word));
+  box.appendChild(w); c.add(box);
+  var note=c.line(start?c.x.isDark:c.x.isLight,"dim");
+  var upd=function(){
+    var flipped=(mq.matches!==start);
+    box.classList.toggle("rev",flipped);
+    note.textContent=flipped?"there it is.":(start?c.x.isDark:c.x.isLight);
+  };
+  if(mq.addEventListener) c.on(mq,"change",upd); else { mq.addListener(upd); c.free(function(){mq.removeListener(upd);}); }
+  c.every(1000,upd); upd();
+  c.field({});
+};
+
+/* 5 - zoom */
+L[5]=function(c){
+  c.line(c.d.p[0]);
+  var t=mk("p","tiny",c.x.tiny); c.add(t);
+  c.field({});
+};
+
+/* 6 - window geometry */
+L[6]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var r=c.readout("");
+  var held=0;
+  c.every(120,function(){
+    var w=innerWidth,h=innerHeight,d=Math.abs(w-h);
+    r.textContent=w+" × "+h+"   ("+(d===0?"level":(w>h?"too wide by "+d:"too tall by "+d))+")";
+    if(d<=2){ held+=120; if(held>=800) c.solve(); } else held=0;
+  });
+};
+
+/* 7 - page visibility */
+L[7]=function(c){
+  c.line(c.d.p[0],"big"); c.line(c.d.p[1],"dim");
+  var need=90000;
+  var away=(st.away7||0);
+  var since=document.hidden?Date.now():0;
+  var r=c.readout(""); var m=c.meter();
+  var upd=function(){
+    var cur=away+(since?Date.now()-since:0);
+    r.textContent=mmss(cur/1000)+" / "+mmss(need/1000)+" away";
+    m.set(cur/need);
+    if(cur>=need) c.solve();
+  };
+  c.on(document,"visibilitychange",function(){
+    if(document.hidden){ since=Date.now(); }
+    else if(since){ away+=Date.now()-since; since=0; st.away7=away; save(); }
+    upd();
+  });
+  c.every(500,upd); upd();
+  c.free(function(){ if(since) away+=Date.now()-since; st.away7=away; save(); });
+};
+
+/* 8 - navigator.onLine */
+L[8]=function(c){
+  c.line(c.d.p[0],"big"); c.line(c.d.p[1],"dim");
+  var r=c.readout(""); var off=0;
+  c.every(300,function(){
+    var on=navigator.onLine!==false;
+    r.textContent=on?"[ connected ]":"[ severed "+((off/1000).toFixed(1))+"s ]";
+    if(!on){ off+=300; if(off>=1500) c.solve(); } else off=0;
+  });
+};
+
+/* 9 - @media print */
+L[9]=function(c){
+  c.line(c.d.p[0]); c.gap();
+  var pr=$("printroom");
+  pr.innerHTML="";
+  var a=mk("div","p1","impression taken from a page that will not say this aloud");
+  var b=mk("div","p2",c.x.word);
+  pr.appendChild(a); pr.appendChild(b);
+  c.free(function(){ pr.innerHTML=""; });
+  try{
+    var mqp=matchMedia("print");
+    var h=function(e){ if(e.matches) say("something is on the sheet.",6000); };
+    if(mqp.addEventListener) c.on(mqp,"change",h);
+  }catch(e){}
+  c.field({});
+};
+
+/* 10 - selection + clipboard */
+L[10]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var hid=mk("p","ln invisible",c.x.hidden);
+  hid.style.margin="2.4rem 0"; hid.style.userSelect="text";
+  c.add(hid);
+  var pasted=false;
+  var inp=c.field({
+    check:function(v){
+      if(!pasted) return "nothing was carried in. this box only takes what was pasted.";
+      return norm(v)===norm(c.d.a);
+    },
+    placeholder:"paste it"
+  });
+  c.on(inp,"paste",function(){ pasted=true; say("something arrived.",2500); });
+};
+
+/* 11 - web audio, morse */
+L[11]=function(c){
+  c.line(c.d.p[0],"big"); c.line(c.d.p[1],"dim");
+  var unit=140, ac=null, stopAt=0;
+  var play=function(){
+    try{
+      var AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC){ say("no audio here. take the hints.",5000); return; }
+      if(!ac) ac=new AC();
+      if(ac.state==="suspended") ac.resume();
+      var t=ac.currentTime+0.25;
+      var g=ac.createGain(); g.gain.value=0; g.connect(ac.destination);
+      var o=ac.createOscillator(); o.type="sine"; o.frequency.value=620; o.connect(g); o.start(t);
+      var u=unit/1000, code=c.x.morse.split(" ");
+      for(var i=0;i<code.length;i++){
+        for(var j=0;j<code[i].length;j++){
+          var d=(code[i][j]==="."?1:3)*u;
+          g.gain.setValueAtTime(0.22,t);
+          g.gain.setValueAtTime(0,t+d);
+          t+=d+u;
+        }
+        t+=2*u;
+      }
+      o.stop(t+0.2);
+      stopAt=Date.now()+ (t-ac.currentTime)*1000;
+    }catch(e){ say("no audio here. take the hints.",5000); }
+  };
+  var row=mk("div","fld");
+  var b1=mk("button","btn","▶ transmit"); b1.type="button";
+  var b2=mk("button","btn","slower"); b2.type="button";
+  row.appendChild(b1); row.appendChild(b2); c.add(row);
+  c.on(b1,"click",play);
+  c.on(b2,"click",function(){ unit=unit>=260?140:unit+60; b2.textContent=unit>=260?"fastest":"slower ("+unit+"ms)"; });
+  var loop=c.every(1000,function(){ if(Date.now()>stopAt+1400 && auto) play(); });
+  var auto=true;
+  c.after(400,play);
+  var b3=mk("button","btn","stop looping"); b3.type="button"; row.appendChild(b3);
+  c.on(b3,"click",function(){ auto=!auto; b3.textContent=auto?"stop looping":"loop again"; });
+  c.free(function(){ try{ if(ac) ac.close(); }catch(e){} });
+  c.field({});
+};
+
+/* 12 - speech synthesis */
+L[12]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var ok=("speechSynthesis" in window);
+  var speak=function(){
+    if(!ok){ say("this machine has no voice: "+c.x.fallback,9000); return; }
+    try{
+      speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance(c.x.say);
+      u.rate=0.6; u.pitch=0.9; u.volume=1;
+      speechSynthesis.speak(u);
+    }catch(e){ say("this machine has no voice: "+c.x.fallback,9000); }
+  };
+  var row=mk("div","fld");
+  var b=mk("button","btn","▶ speak"); b.type="button"; row.appendChild(b); c.add(row);
+  c.on(b,"click",speak);
+  c.after(600,speak);
+  c.free(function(){ try{ speechSynthesis.cancel(); }catch(e){} });
+  c.field({});
+};
+
+/* 13 - fullscreen */
+L[13]=function(c){
+  c.line(c.d.p[0]);
+  var word=c.x.word, hide=c.x.hide.split(",").map(Number);
+  var wrap=mk("div","glyphs"); var cells=[];
+  for(var i=0;i<word.length;i++){
+    var g=mk("i",null,word[i]);
+    if(hide.indexOf(i)>=0) g.classList.add("gone");
+    cells.push(g); wrap.appendChild(g);
+  }
+  c.add(wrap);
+  var row=mk("div","fld");
+  var b=mk("button","btn","⤡ expand"); b.type="button"; row.appendChild(b); c.add(row);
+  c.on(b,"click",function(){
+    try{
+      if(document.fullscreenElement) document.exitFullscreen();
+      else (document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+    }catch(e){ say("try F11.",4000); }
+  });
+  var isFs=function(){
+    if(document.fullscreenElement||document.webkitFullscreenElement) return true;
+    try{ return innerHeight>=screen.height-3 && innerWidth>=screen.width-3; }catch(e){ return false; }
+  };
+  c.every(250,function(){
+    var f=isFs();
+    for(var i=0;i<hide.length;i++) cells[hide[i]].classList.toggle("gone",!f);
+    b.textContent=f?"⤡ collapse":"⤡ expand";
+  });
+  c.field({});
+};
+
+/* 14 - key sequence */
+L[14]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var seq=["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];
+  var i=0;
+  var r=c.readout("· · · · · · · · · ·");
+  var draw=function(){
+    var s=[]; for(var k=0;k<seq.length;k++) s.push(k<i?"■":"·");
+    r.textContent=s.join(" ");
+  };
+  c.on(window,"keydown",function(e){
+    var k=e.key;
+    if(k.indexOf("Arrow")===0) e.preventDefault();
+    if(k.length===1) k=k.toLowerCase();
+    if(k===seq[i]){ i++; draw(); if(i===seq.length) c.solve(); }
+    else { i=(k===seq[0])?1:0; draw(); }
+  });
+};
+
+/* 15 - history api. hash navigation, because pushState is forbidden
+   on the null origin a file:// document gets. */
+L[15]=function(c){
+  c.line(c.d.p[0],"big"); c.line(c.d.p[1],"dim");
+  var need=3, got=0, pushing=true;
+  var r=c.readout("");
+  var draw=function(){ r.textContent="steps taken back: "+got+" / "+need+"   "+(location.hash||"(here)"); };
+  draw();
+  var marks=["#retro-1","#retro-2","#retro-3"], i=0;
+  var push=function(){
+    if(i>=marks.length){ pushing=false; draw(); return; }
+    location.hash=marks[i++];
+    c.after(90,push);
+  };
+  c.after(60,push);
+  c.on(window,"hashchange",function(){
+    if(pushing){ draw(); return; }
+    got++; draw();
+    if(got>=need) c.solve();
+  });
+  c.free(function(){ pushing=true; });
+};
+
+/* 16 - canvas getImageData */
+L[16]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1]); c.line(c.d.p[2],"dim");
+  var cv=mk("canvas"); cv.id="grain"; cv.width=128; cv.height=128;
+  c.add(cv);
+  var g=cv.getContext("2d",{willReadFrequently:true});
+  var img=g.createImageData(128,128);
+  var seed=20250803;
+  var rnd=function(){ seed=(seed*1103515245+12345)&0x7fffffff; return seed/0x7fffffff; };
+  for(var i=0;i<128*128;i++){
+    var v=Math.floor(rnd()*9);
+    img.data[i*4]=v; img.data[i*4+1]=v; img.data[i*4+2]=v; img.data[i*4+3]=255;
+  }
+  var at=c.x.at.split(",").map(Number), rgb=c.x.rgb.split(",").map(Number);
+  var k=(at[1]*128+at[0])*4;
+  img.data[k]=rgb[0]; img.data[k+1]=rgb[1]; img.data[k+2]=rgb[2]; img.data[k+3]=255;
+  g.putImageData(img,0,0);
+  c.field({placeholder:"six digits"});
+};
+
+/* 17 - broadcastchannel */
+L[17]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim");
+  var r=c.readout("[ alone ]");
+  var half=c.line("","big");
+  var me=Math.random().toString(36).slice(2)+Date.now().toString(36);
+  var peers={};
+  var ch=chan("pzz-twins",function(d){
+    if(!d||d.id===me) return;
+    if(d.lvl===17) peers[d.id]=Date.now();
+  });
+  c.free(function(){ ch.close(); });
+  c.every(400,function(){
+    ch.post({id:me,lvl:17,t:Date.now()});
+    var now=Date.now(), ids=[me];
+    for(var k in peers){ if(now-peers[k]<1600) ids.push(k); else delete peers[k]; }
+    ids.sort();
+    var n=ids.length;
+    r.textContent=n<2?"[ alone ]":"[ "+n+" twins present ]";
+    half.textContent=n<2?"":(ids[0]===me?c.x.a:c.x.b);
+  });
+  c.field({});
+};
+
+/* 18 - the absence of input */
+L[18]=function(c){
+  c.line(c.d.p[0],"big"); c.line(c.d.p[1],"dim");
+  var need=120000, start=Date.now();
+  var r=c.readout(""); var m=c.meter();
+  var lastPt=null;
+  var reset=function(why){
+    if(Date.now()-start<400) return;
+    start=Date.now(); say(why,2200);
+  };
+  var guard=function(e){ if(e&&e.target&&e.target.closest&&e.target.closest("#bar,.ov")) return true; return false; };
+  ["keydown","wheel","click","scroll","touchstart","pointerdown"].forEach(function(ev){
+    c.on(document,ev,function(e){ if(!guard(e)) reset("you moved."); },true);
+  });
+  c.on(document,"mousemove",function(e){
+    if(guard(e)) return;
+    if(!lastPt){ lastPt=[e.clientX,e.clientY]; return; }
+    if(Math.abs(e.clientX-lastPt[0])+Math.abs(e.clientY-lastPt[1])>8){
+      lastPt=[e.clientX,e.clientY]; reset("the mouse moved.");
+    }
+  },true);
+  c.on(window,"blur",function(){ reset("you looked away."); });
+  c.every(200,function(){
+    if(document.hidden||!document.hasFocus()){ start=Date.now(); r.textContent="[ paused - come back and be still ]"; m.set(0); return; }
+    var el=Date.now()-start;
+    r.textContent=mmss(el/1000)+" / "+mmss(need/1000)+" of nothing";
+    m.set(el/need);
+    if(el>=need) c.solve();
+  });
+};
+
+/* 19 - navigator + screen */
+L[19]=function(c){
+  c.line(c.d.p[0]); c.line(c.d.p[1],"dim"); c.gap();
+  var qs=[
+    [c.x.q1,function(){return navigator.hardwareConcurrency;}],
+    [c.x.q2,function(){return Math.abs(new Date().getTimezoneOffset());}],
+    [c.x.q3,function(){return screen.width;}],
+    [c.x.q4,function(){return screen.colorDepth;}]
+  ];
+  var rows=[];
+  qs.forEach(function(q){
+    var row=mk("div","qrow");
+    row.appendChild(mk("span",null,q[0]));
+    var i=mk("input"); i.type="text"; i.autocomplete="off"; i.inputMode="numeric";
+    row.appendChild(i); c.add(row); rows.push([row,i,q[1]]);
+  });
+  c.every(400,function(){
+    var all=true;
+    rows.forEach(function(r){
+      var want, got=String(r[1].value).trim();
+      try{ want=String(r[2]()); }catch(e){ want="?"; }
+      var ok=got!==""&&got===want;
+      r[0].classList.toggle("ok",ok);
+      if(!ok) all=false;
+    });
+    if(all) c.solve();
+  });
+};
+
+/* 20 - the clock */
+L[20]=function(c){
+  if(!st.saw20){ st.saw20=true; save(); }
+  c.line(c.d.p[0],"dim"); c.line(c.d.p[1]); c.gap();
+  c.line(S["20"].s,"big");
+  c.gap();
+  c.line(c.d.p[2]);
+  c.field({
+    placeholder:"twenty letters",
+    check:function(v){
+      if(norm(v)!==norm(c.d.a)) return false;
+      if(new Date().getSeconds()>=4) return c.x.wrongtime;
+      return true;
+    }
+  });
+};
+
+/* ---------- shell ---------- */
+function setTitle(){
+  if(st.cur===0) document.title="PZZ";
+  else document.title="PZZ · "+pad(st.cur)+"/"+N;
+}
+
+function intro(){
+  stage.innerHTML="";
+  stage.appendChild(mk("p","eyebrow","pzz"));
+  ["twenty doors.","none of them open by clicking.",
+   "everything you need is already on this machine:",
+   "the browser, the window, the clock, the speakers, the wire.",
+   "look outside the page."].forEach(function(t,i){
+    stage.appendChild(mk("p","ln"+(i>1?" dim":""),t));
+  });
+  stage.appendChild(mk("div","gap"));
+  var b=mk("button","btn",st.max>1?"resume at door "+pad(st.max):"open the first door");
+  stage.appendChild(b);
+  b.addEventListener("click",function(){ go(st.max||1); });
+  var k=function(e){ if(e.key==="Enter"){ removeEventListener("keydown",k); go(st.max||1);} };
+  addEventListener("keydown",k);
+  pos.textContent=""; nameEl.textContent=""; clk.textContent="";
+  bhint.disabled=true;
+  favicon("?");
+  setTitle();
+}
+
+function go(n){
+  if(live){ live.kill(); live=null; }
+  stage.innerHTML="";
+  say("");
+  st.cur=n; save();
+  if(n===0){ intro(); return; }
+  bhint.disabled=false;
+  pos.textContent=pad(n)+" / "+N;
+  nameEl.textContent=S[String(n)].t;
+  favicon(String(n));
+  setTitle();
+  live=makeCtx(n);
+  try{ L[n](live); }catch(e){ console.error(e); say("this door is jammed. reload.",9000); }
+  updHintBtn();
+}
+
+function markSolved(n){
+  if(live){ live.kill(); live=null; }
+  st.solved[n]=true;
+  if(n+1>st.max) st.max=Math.min(N,n+1);
+  save();
+  var d=S[String(n)];
+  $("ovLead").textContent=n===N?"the last door":"door "+pad(n)+" open";
+  $("ovLetter").textContent=d.s;
+  $("ovNote").textContent=n===N?"":"a letter. keep it.";
+  $("ovNext").textContent=n===N?"finish":"continue";
+  $("ovSolve").classList.remove("hid");
+  try{ if(navigator.vibrate) navigator.vibrate([18,60,18]); }catch(e){}
+}
+
+$("ovNext").addEventListener("click",function(){
+  $("ovSolve").classList.add("hid");
+  var n=st.cur;
+  if(n>=N){ finish(); return; }
+  go(n+1);
+});
+
+function finish(){
+  st.done=true; save();
+  $("endPhrase").textContent=S["20"].x.final;
+  $("ovEnd").classList.remove("hid");
+  $("ovEnd").classList.add("inv");
+  favicon("!");
+  document.title="PZZ · done";
+  try{ console.log("%c "+S["20"].x.final+" ","background:#000;color:#fff;font:20px monospace;padding:12px"); }catch(e){}
+}
+$("endTurn").addEventListener("click",function(){
+  $("endA").style.display="none";
+  $("endB").style.display="block";
+  $("ovEnd").classList.remove("inv");
+  var ul=$("endList"); ul.innerHTML="";
+  for(var i=0;i<N;i++){
+    var r=mk("div",null,pad(i+1)+"   "+S[String(i+1)].t.toLowerCase()+"   —   "+MECH[i]);
+    ul.appendChild(r);
+  }
+  var t=0; for(var k in st.times) t+=st.times[k];
+  $("endTime").textContent="you spent "+hms(t)+" in there.";
+});
+$("endReset").addEventListener("click",function(){
+  if(!confirm("erase all progress and start from door 01?")) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  location.reload();
+});
+
+/* ---------- hints ---------- */
+function unlockAt(i){
+  return i<HINT_AT.length ? HINT_AT[i]
+       : HINT_AT[HINT_AT.length-1]+(i-HINT_AT.length+1)*240;
+}
+function hintsUnlocked(n){
+  var spent=st.times[n]||0, hs=S[String(n)].h||[], k=0;
+  for(var i=0;i<hs.length;i++) if(spent>=unlockAt(i)) k=i+1;
+  return k;
+}
+function updHintBtn(){
+  if(st.cur===0){ bhint.disabled=true; return; }
+  var n=st.cur, taken=st.hints[n]||0, avail=hintsUnlocked(n), total=(S[String(n)].h||[]).length;
+  if(taken>=total){ bhint.textContent="no more"; bhint.disabled=true; return; }
+  if(taken<avail){ bhint.textContent="hint ("+(avail-taken)+")"; bhint.disabled=false; }
+  else{
+    var left=Math.max(0,unlockAt(taken)-(st.times[n]||0));
+    bhint.textContent="hint in "+mmss(left);
+    bhint.disabled=true;
+  }
+}
+function showHint(text,lead){
+  var p=mk("p","ln dim","→ "+text);
+  p.style.marginTop="1.4rem";
+  stage.appendChild(p);
+  try{ p.scrollIntoView({block:"nearest"}); }catch(e){}
+  if(lead) say(lead,6000);
+}
+
+/* hands over the next unused hint for a level, ignoring the wait */
+function grantHint(n,lead){
+  var hs=S[String(n)].h||[], taken=st.hints[n]||0;
+  if(taken>=hs.length){ say("there are no hints left on this door.",5000); return false; }
+  st.hints[n]=taken+1; save();
+  showHint(hs[taken],lead);
+  updHintBtn();
+  return true;
+}
+
+/* Distinct wrong guesses buy hints: the second, and the fourth.
+   Typing the same wrong answer twice is one mistake, not two. */
+var WRONG_HINT_AT=[2,4];
+function noteWrong(n,raw){
+  var v=norm(raw);
+  if(!v) return;
+  var list=st.wrongs[n]||(st.wrongs[n]=[]);
+  if(list.indexOf(v)>=0) return;
+  list.push(v);
+  if(list.length>24) list.shift();
+  save();
+  var k=list.length;
+  if(WRONG_HINT_AT.indexOf(k)<0) return;
+  grantHint(n, k===WRONG_HINT_AT[0] ? "two wrong. here, take something:"
+                                    : "four wrong. take another:");
+}
+
+bhint.addEventListener("click",function(){
+  var n=st.cur; if(!n) return;
+  if((st.hints[n]||0)>=hintsUnlocked(n)) return;
+  grantHint(n);
+});
+
+/* ---------- archive ---------- */
+function openArch(){
+  var a=$("arch"); a.innerHTML="";
+  for(var i=1;i<=N;i++){
+    var got=!!st.solved[i]||(i===20&&st.saw20);
+    var reach=i<=st.max;
+    var row=mk("div","row"+(got||reach?" got":""));
+    row.appendChild(mk("div","no",pad(i)));
+    row.appendChild(mk("div","nm",(got||reach)?S[String(i)].t:"—"));
+    row.appendChild(mk("div","lt",got?S[String(i)].s:"·"));
+    if(reach) (function(n){ row.addEventListener("click",function(){ closeOv(); go(n); }); })(i);
+    a.appendChild(row);
+  }
+  $("ovArch").classList.remove("hid");
+}
+function closeOv(){ $("ovArch").classList.add("hid"); }
+barch.addEventListener("click",openArch);
+$("ovClose").addEventListener("click",closeOv);
+$("btheme").addEventListener("click",toggleTheme);
+
+addEventListener("keydown",function(e){
+  var t=e.target, tag=t&&t.tagName;
+  if(tag==="INPUT"||tag==="TEXTAREA") return;
+  if(e.key==="Escape"){ closeOv(); }
+  else if(e.key==="a"||e.key==="A"){ if($("ovArch").classList.contains("hid")) openArch(); else closeOv(); }
+  else if(e.key==="?"||e.key==="h"||e.key==="H"){ if(!bhint.disabled) bhint.click(); }
+  else if(e.key==="d"||e.key==="D"){ toggleTheme(); }
+});
+
+/* ---------- clocks ---------- */
+setInterval(function(){
+  if(st.cur>0 && !document.hidden){
+    st.times[st.cur]=(st.times[st.cur]||0)+1;
+    st.total=(st.total||0)+1;
+    clk.textContent=mmss(st.times[st.cur]);
+    updHintBtn();
+    if(st.total%5===0) save();
+  }
+  var t=0; for(var k in st.times) t+=st.times[k];
+  tot.textContent=hms(t)+" total";
+},1000);
+addEventListener("beforeunload",save);
+document.addEventListener("visibilitychange",save);
+
+/* ---------- boot ---------- */
+try{
+  console.log("%c  nothing to see here.  ","background:#000;color:#fff;font:13px monospace;padding:8px");
+}catch(e){}
+if(st.done){ st.cur=st.cur||0; }
+applyTheme();
+go(st.cur||0);
+
+})();
+</script>
+</body>
+</html>
