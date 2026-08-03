@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lukeo98 - Portfolio</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="desktop">
+
+    <div id="icons">
+      <div class="icon" data-window="welcome-window" tabindex="0">
+        <img src="assets/icons/computer.svg" alt="">
+        <span>Welcome</span>
+      </div>
+      <div class="icon" data-window="projects-window" tabindex="0">
+        <img src="assets/icons/folder.svg" alt="">
+        <span>My Projects</span>
+      </div>
+      <div class="icon" data-url="https://discord.gg/MHT73Dh7Gz" tabindex="0">
+        <img src="assets/icons/discord.svg" alt="">
+        <span>Discord</span>
+      </div>
+    </div>
+
+    <!-- Windows -->
+
+    <div class="window" id="welcome-window" style="top:80px; left:160px; width:420px;">
+      <div class="title-bar">
+        <div class="title-bar-text">
+          <img src="assets/icons/computer.svg" class="title-icon" alt="">
+          Welcome
+        </div>
+        <div class="title-bar-controls">
+          <button aria-label="Minimize" class="min-btn"></button>
+          <button aria-label="Maximize" class="max-btn"></button>
+          <button aria-label="Close" class="close-btn"></button>
+        </div>
+      </div>
+      <div class="window-body">
+        <p>Hi, I'm <b>velx</b> &mdash; a software developer and vr modder.</p>
+        <p>Welcome to my website. Click around to learn about my projects and more.</p>
+      </div>
+      <div class="status-bar">
+        <p class="status-bar-field">Ready</p>
+      </div>
+    </div>
+
+    <div class="window explorer" id="projects-window" style="top:90px; left:240px; width:660px; height:645px; display:none;">
+      <div class="title-bar">
+        <div class="title-bar-text">
+          <img src="assets/icons/folder.svg" class="title-icon" alt="">
+          My Projects
+        </div>
+        <div class="title-bar-controls">
+          <button aria-label="Minimize" class="min-btn"></button>
+          <button aria-label="Maximize" class="max-btn"></button>
+          <button aria-label="Close" class="close-btn"></button>
+        </div>
+      </div>
+
+      <div class="menu-bar">
+        <span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Favorites</span><span>Help</span>
+      </div>
+
+      <div class="toolbar">
+        <button class="toolbar-btn" disabled>
+          <span class="tb-arrow left"></span>Back
+        </button>
+        <button class="toolbar-btn" disabled>
+          <span class="tb-arrow right"></span>Forward
+        </button>
+        <div class="toolbar-sep"></div>
+        <button class="toolbar-btn" disabled>
+          <img src="assets/icons/folder.svg" alt="">Up
+        </button>
+      </div>
+
+      <div class="address-bar">
+        <label>Address</label>
+        <div class="address-field">
+          <img src="assets/icons/folder.svg" alt="">
+          <span>C:\Projects</span>
+        </div>
+      </div>
+
+      <div class="explorer-body">
+        <div class="explorer-list">
+          <div class="explorer-item selected" data-project="p1" tabindex="0">
+            <img src="assets/icons/folder.svg" alt="">
+            <span>Ion Cannon</span>
+          </div>
+        </div>
+
+        <div class="explorer-detail">
+          <div class="project-detail" data-project="p1">
+            <h2>Ion Cannon</h2>
+            <div class="project-image">
+              <img src="assets/images/ion-cannon.png" alt="Ion Cannon screenshot"
+                onerror="this.onerror=null;this.src='assets/images/project-one.svg';">
+            </div>
+            <div class="project-meta">
+              <span class="tag">Electron</span>
+              <span class="tag">JavaScript</span>
+              <span class="tag">Meta Quest</span>
+            </div>
+            <p>A fully standalone Windows application that provides a graphical
+              user interface for the <b>Ionstack</b> rooting exploit for Meta
+              Quest headsets.</p>
+            <p>Built in Electron with JavaScript, Ion Cannon wraps the exploit's
+              command-line workflow in a clean, guided interface &mdash; making
+              it far easier to root a headset without touching a terminal.</p>
+            <p class="project-actions">
+              <a class="btn98" href="https://gofile.io/d/jKk1aR" target="_blank" rel="noopener">
+                <img src="assets/icons/computer.svg" alt="">Download Ion Cannon
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="status-bar">
+        <p class="status-bar-field">1 object(s)</p>
+        <p class="status-bar-field status-bar-right">My Computer</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Start Menu -->
+  <div id="start-menu">
+    <div class="start-menu-banner"><span>lukeo98</span></div>
+    <ul class="start-menu-items">
+      <li data-window="welcome-window"><img src="assets/icons/computer.svg" alt="">Welcome</li>
+      <li data-window="projects-window"><img src="assets/icons/folder.svg" alt="">My Projects</li>
+      <li class="divider"></li>
+      <li id="shutdown-item"><img src="assets/icons/shutdown.svg" alt="">Shut Down...</li>
+    </ul>
+  </div>
+
+  <!-- Taskbar -->
+  <div id="taskbar">
+    <button id="start-button">
+      <img src="assets/icons/start.svg" alt="">
+      <span>Start</span>
+    </button>
+    <div id="taskbar-separator"></div>
+    <div id="taskbar-tasks"></div>
+    <div id="tray">
+      <div id="tray-clock">12:00 PM</div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
