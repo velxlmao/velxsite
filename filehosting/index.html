@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>File Hosting</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  body {
+    background: var(--win98-teal);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    overflow: auto;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .panel {
+    position: static;
+    width: 100%;
+    max-width: 620px;
+  }
+
+  .field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+
+  .field-row label {
+    min-width: 92px;
+  }
+
+  input[type="password"],
+  input[type="text"] {
+    flex: 1;
+    min-width: 160px;
+    padding: 3px 5px;
+    font-family: inherit;
+    font-size: 12px;
+    background: #fff;
+    border: none;
+    box-shadow:
+      inset -1px -1px 0 0 #dfdfdf,
+      inset 1px 1px 0 0 #808080,
+      inset -2px -2px 0 0 #fff,
+      inset 2px 2px 0 0 #0a0a0a;
+  }
+
+  input:focus { outline: 1px dotted #000; outline-offset: -3px; }
+
+  .hint {
+    font-size: 11px;
+    color: #333;
+    line-height: 1.5;
+    margin: 0 0 10px 0;
+  }
+
+  .hidden { display: none !important; }
+
+  #drop {
+    margin: 10px 0;
+    padding: 26px 12px;
+    text-align: center;
+    background: #fff;
+    cursor: pointer;
+    box-shadow:
+      inset -1px -1px 0 0 #dfdfdf,
+      inset 1px 1px 0 0 #808080,
+      inset -2px -2px 0 0 #fff,
+      inset 2px 2px 0 0 #0a0a0a;
+  }
+
+  #drop.over { background: #e8e8ff; }
+  #drop b { display: block; margin-bottom: 4px; }
+  #drop span { font-size: 11px; color: #555; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 3px 6px; }
+  thead th {
+    background: var(--win98-gray);
+    box-shadow:
+      inset -1px -1px 0 0 #808080,
+      inset 1px 1px 0 0 #fff;
+    font-weight: normal;
+  }
+  tbody tr:nth-child(odd) { background: #f2f2f2; }
+  td.size { white-space: nowrap; color: #444; }
+  td.act { white-space: nowrap; text-align: right; }
+
+  .files-wrap {
+    background: #fff;
+    max-height: 260px;
+    overflow: auto;
+    box-shadow:
+      inset -1px -1px 0 0 #dfdfdf,
+      inset 1px 1px 0 0 #808080,
+      inset -2px -2px 0 0 #fff,
+      inset 2px 2px 0 0 #0a0a0a;
+    padding: 2px;
+  }
+
+  .linkcell a { color: #0000ee; word-break: break-all; }
+
+  .bar {
+    height: 16px;
+    background: #fff;
+    margin: 8px 0;
+    box-shadow:
+      inset -1px -1px 0 0 #dfdfdf,
+      inset 1px 1px 0 0 #808080,
+      inset -2px -2px 0 0 #fff,
+      inset 2px 2px 0 0 #0a0a0a;
+    padding: 2px;
+  }
+  .bar > div {
+    height: 100%;
+    width: 0%;
+    background: var(--win98-blue-title);
+    transition: width .15s;
+  }
+
+  .msg { margin: 8px 0 0 0; font-size: 12px; }
+  .msg.err { color: #a00000; }
+  .msg.ok { color: #006000; }
+
+  .warn {
+    background: #ffffcc;
+    padding: 8px 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+    box-shadow:
+      inset -1px -1px 0 0 #808080,
+      inset 1px 1px 0 0 #fff;
+  }
+
+  .row-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  button.btn98 { border: none; font-family: inherit; }
+</style>
+</head>
+<body>
+
+<div class="window panel">
+  <div class="title-bar">
+    <div class="title-bar-text">
+      <img src="../assets/icons/folder.svg" class="title-icon" alt="">
+      File Hosting
+    </div>
+  </div>
+
+  <!-- Step 1: passphrase -->
+  <div class="window-body" id="lock">
+    <p class="hint">This area is private. Enter the passphrase to continue.</p>
+    <div class="field-row">
+      <label for="pw">Passphrase</label>
+      <input type="password" id="pw" autocomplete="current-password" autofocus>
+    </div>
+    <div class="row-btns">
+      <button class="btn98" id="unlock">OK</button>
+    </div>
+    <p class="msg err hidden" id="pwmsg">Incorrect passphrase.</p>
+  </div>
+
+  <!-- Step 2: uploader -->
+  <div class="window-body hidden" id="app">
+    <div class="warn">
+      <b>Heads up:</b> uploaded files are committed to the public
+      <code>velxlmao/velxsite</code> repo and are <b>publicly downloadable</b> by
+      anyone with the link. Keep files under ~25&nbsp;MB. Live links appear about
+      a minute after upload, once Pages rebuilds.
+    </div>
+
+    <div class="field-row">
+      <label for="tok">GitHub token</label>
+      <input type="password" id="tok" placeholder="ghp_… (stored only in this browser)">
+    </div>
+    <p class="hint">
+      Needs a fine-grained token with <b>Contents: Read and write</b> on
+      <code>velxlmao/velxsite</code>. It is saved in this browser's local storage
+      only &mdash; never in the site's code.
+    </p>
+    <div class="row-btns">
+      <button class="btn98" id="save">Save token</button>
+      <button class="btn98" id="refresh">Refresh list</button>
+      <button class="btn98" id="forget">Forget token</button>
+    </div>
+
+    <div id="drop">
+      <b>Drop files here</b>
+      <span>or click to choose</span>
+      <input type="file" id="file" multiple class="hidden">
+    </div>
+
+    <div class="bar"><div id="prog"></div></div>
+    <p class="msg" id="msg"></p>
+
+    <div class="files-wrap">
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Size</th><th>Link</th><th></th></tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="4" style="padding:8px;color:#666">Not loaded yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <p class="status-bar-field" id="status">Locked</p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const OWNER  = "velxlmao";
+  const REPO   = "velxsite";
+  const BRANCH = "main";
+  const DIR    = "filehosting";
+  const BASE   = location.origin + "/" + DIR + "/";
+  // SHA-256 of the passphrase. This gate is a convenience lock, not real
+  // security — the uploads themselves are protected by the GitHub token.
+  const PW_HASH = "f5ebef72f6bf7650cc2395258b0da320a580453a8c70c6ac9a7dd6d6b6ed04b7";
+
+  const $ = id => document.getElementById(id);
+  const status = t => { $("status").textContent = t; };
+  const say = (t, cls = "") => { const m = $("msg"); m.textContent = t; m.className = "msg " + cls; };
+
+  async function sha256(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  function fmtSize(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  }
+
+  /* ---------- passphrase gate ---------- */
+
+  async function tryUnlock() {
+    const val = $("pw").value;
+    if (!val) return;
+    if (await sha256(val) === PW_HASH) {
+      sessionStorage.setItem("fh_ok", "1");
+      unlock();
+    } else {
+      $("pwmsg").classList.remove("hidden");
+      $("pw").select();
+    }
+  }
+
+  function unlock() {
+    $("lock").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    status("Ready");
+    const t = localStorage.getItem("fh_token");
+    if (t) { $("tok").value = t; listFiles(); }
+    else { say("Paste a GitHub token to begin.", ""); }
+  }
+
+  $("unlock").addEventListener("click", tryUnlock);
+  $("pw").addEventListener("keydown", e => { if (e.key === "Enter") tryUnlock(); });
+
+  /* ---------- token ---------- */
+
+  const token = () => $("tok").value.trim();
+
+  $("save").addEventListener("click", () => {
+    if (!token()) return say("Enter a token first.", "err");
+    localStorage.setItem("fh_token", token());
+    say("Token saved in this browser.", "ok");
+    listFiles();
+  });
+
+  $("forget").addEventListener("click", () => {
+    localStorage.removeItem("fh_token");
+    $("tok").value = "";
+    say("Token removed from this browser.", "ok");
+  });
+
+  $("refresh").addEventListener("click", listFiles);
+
+  function api(path, opts = {}) {
+    return fetch("https://api.github.com/repos/" + OWNER + "/" + REPO + path, {
+      ...opts,
+      headers: {
+        "Accept": "application/vnd.github+json",
+        "Authorization": "Bearer " + token(),
+        ...(opts.headers || {})
+      }
+    });
+  }
+
+  /* ---------- listing ---------- */
+
+  async function listFiles() {
+    if (!token()) return say("No token set.", "err");
+    status("Loading…");
+    try {
+      const r = await api("/contents/" + DIR + "?ref=" + BRANCH);
+      if (r.status === 401) return say("Token rejected (401). Check it has Contents: write.", "err");
+      if (!r.ok && r.status !== 404) return say("List failed: " + r.status, "err");
+      const data = r.status === 404 ? [] : await r.json();
+      render(Array.isArray(data) ? data.filter(f => f.type === "file" && f.name !== "index.html") : []);
+      say("");
+      status("Ready");
+    } catch (e) {
+      say("Network error: " + e.message, "err");
+      status("Error");
+    }
+  }
+
+  function render(files) {
+    const rows = $("rows");
+    rows.innerHTML = "";
+    if (!files.length) {
+      rows.innerHTML = '<tr><td colspan="4" style="padding:8px;color:#666">No files uploaded yet.</td></tr>';
+      return;
+    }
+    files.sort((a, b) => a.name.localeCompare(b.name));
+    for (const f of files) {
+      const url = BASE + encodeURIComponent(f.name);
+      const tr = document.createElement("tr");
+
+      const tdName = document.createElement("td");
+      tdName.textContent = f.name;
+
+      const tdSize = document.createElement("td");
+      tdSize.className = "size";
+      tdSize.textContent = fmtSize(f.size);
+
+      const tdLink = document.createElement("td");
+      tdLink.className = "linkcell";
+      const a = document.createElement("a");
+      a.href = url; a.textContent = url; a.target = "_blank"; a.rel = "noopener";
+      tdLink.appendChild(a);
+
+      const tdAct = document.createElement("td");
+      tdAct.className = "act";
+      const copy = document.createElement("button");
+      copy.className = "btn98"; copy.textContent = "Copy";
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(url); copy.textContent = "Copied"; }
+        catch { copy.textContent = "Failed"; }
+        setTimeout(() => copy.textContent = "Copy", 1200);
+      });
+      const del = document.createElement("button");
+      del.className = "btn98"; del.textContent = "Delete";
+      del.addEventListener("click", () => removeFile(f));
+      tdAct.append(copy, " ", del);
+
+      tr.append(tdName, tdSize, tdLink, tdAct);
+      rows.appendChild(tr);
+    }
+  }
+
+  /* ---------- upload ---------- */
+
+  const toBase64 = file => new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => res(String(fr.result).split(",")[1]);
+    fr.onerror = () => rej(new Error("Could not read file"));
+    fr.readAsDataURL(file);
+  });
+
+  async function existingSha(name) {
+    const r = await api("/contents/" + DIR + "/" + encodeURIComponent(name) + "?ref=" + BRANCH);
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.sha || null;
+  }
+
+  async function uploadAll(files) {
+    if (!token()) return say("Set a GitHub token first.", "err");
+    const list = [...files];
+    let done = 0;
+    $("prog").style.width = "0%";
+
+    for (const file of list) {
+      if (file.size > 25 * 1024 * 1024) {
+        say('"' + file.name + '" is ' + fmtSize(file.size) + " — over the 25 MB limit, skipped.", "err");
+        continue;
+      }
+      status("Uploading " + file.name + "…");
+      say("Uploading " + file.name + " (" + fmtSize(file.size) + ")…");
+      try {
+        const content = await toBase64(file);
+        const sha = await existingSha(file.name);
+        const r = await api("/contents/" + DIR + "/" + encodeURIComponent(file.name), {
+          method: "PUT",
+          body: JSON.stringify({
+            message: "Upload " + file.name + " via file hosting",
+            content, branch: BRANCH, ...(sha ? { sha } : {})
+          })
+        });
+        if (!r.ok) {
+          const err = await r.text();
+          say("Upload failed for " + file.name + " (" + r.status + "). " + err.slice(0, 140), "err");
+          status("Error");
+          continue;
+        }
+      } catch (e) {
+        say("Error on " + file.name + ": " + e.message, "err");
+        continue;
+      }
+      done++;
+      $("prog").style.width = Math.round(done / list.length * 100) + "%";
+    }
+
+    if (done) say(done + " file(s) uploaded. Links go live in ~1 minute once Pages rebuilds.", "ok");
+    status("Ready");
+    listFiles();
+  }
+
+  async function removeFile(f) {
+    if (!confirm('Delete "' + f.name + '" from the repo?')) return;
+    status("Deleting…");
+    const r = await api("/contents/" + DIR + "/" + encodeURIComponent(f.name), {
+      method: "DELETE",
+      body: JSON.stringify({ message: "Delete " + f.name, sha: f.sha, branch: BRANCH })
+    });
+    if (r.ok) { say("Deleted " + f.name + ".", "ok"); listFiles(); }
+    else { say("Delete failed (" + r.status + ").", "err"); status("Error"); }
+  }
+
+  const drop = $("drop"), fileInput = $("file");
+  drop.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => { if (fileInput.files.length) uploadAll(fileInput.files); fileInput.value = ""; });
+  ["dragenter", "dragover"].forEach(ev =>
+    drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev =>
+    drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => {
+    if (e.dataTransfer.files.length) uploadAll(e.dataTransfer.files);
+  });
+
+  if (sessionStorage.getItem("fh_ok") === "1") unlock();
+})();
+</script>
+</body>
+</html>
